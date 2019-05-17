@@ -15,12 +15,7 @@ from optparse import OptionParser
 
 from sae.util import search_file_bottom_up
 
-app_root = search_file_bottom_up('config.yaml')
-if app_root is None:
-    print >> sys.stderr, \
-        'Error: Not an app directory(or any of the parent directories)'
-    sys.exit(1)
-if app_root != os.getcwd(): os.chdir(app_root)
+from sae.channel import _channel_wrapper
 
 def setup_sae_environ(conf):
     # Add dummy pylibmc module
@@ -59,6 +54,7 @@ def setup_sae_environ(conf):
         sae.const.MYSQL_PASS = password
         sae.const.MYSQL_PORT = port
         sae.const.MYSQL_HOST = host
+        sae.const.MYSQL_HOST_S = host
 
         print 'MySQL: %s.%s' % (conf.mysql, dbname)
     else:
@@ -93,6 +89,8 @@ class Worker:
                 '/media': os.path.join(app_root,  'media'),
                 '/favicon.ico': os.path.join(app_root,  'favicon.ico'),
             })
+        import sae
+        self.static_files['/_sae/channel/api.js'] = os.path.join(os.path.dirname(sae.__file__), 'channel.js')
 
         if self.conf.storage:
             # stor dispatch: for test usage only
@@ -123,6 +121,7 @@ class WsgiWorker(Worker):
         if 'WERKZEUG_RUN_MAIN' in os.environ:
             os.environ['sae.run_main'] = '1'
 
+        self.application = _channel_wrapper(self.application)
         from werkzeug.serving import run_simple
         run_simple(self.conf.host, self.conf.port,
                    wrap(self.application),
@@ -196,5 +195,12 @@ if __name__ == '__main__':
     parser.add_option("--storage-path", dest="storage", help="Directory used as local stoarge")
     parser.add_option("--kvdb-file", dest="kvdb", help="File to save kvdb data")
     (options, args) = parser.parse_args()
+
+    app_root = search_file_bottom_up('config.yaml')
+    if app_root is None:
+        print >> sys.stderr, \
+            'Error: Not an app directory(or any of the parent directories)'
+        sys.exit(1)
+    if app_root != os.getcwd(): os.chdir(app_root)
 
     main(options)

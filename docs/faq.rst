@@ -51,7 +51,7 @@ python server会直接在浏览器中打印出异常。
 
 `预装申请`_
 
-.. _预装申请: https://github.com/SAEPython/saepythondevguide/issues/new
+.. _预装申请: https://github.com/sinacloud/sae-python-dev-guide/issues/new
 
 .. note::
 
@@ -71,7 +71,7 @@ python server会直接在浏览器中打印出异常。
     新浪微博API OAuth 2 Python客户端
 
 .. _weibopy: http://code.google.com/p/sinatpy/
-.. _examples/weibo: https://github.com/SAEPython/saepythondevguide/tree/master/examples/weibo/1
+.. _examples/weibo: https://github.com/sinacloud/sae-python-dev-guide/tree/master/examples/weibo/1
 .. _sinaweibopy: http://open.weibo.com/wiki/SDK#Python_SDK
 
 
@@ -185,3 +185,58 @@ virtualenv.bundle.zip添加到module的搜索路径中，示例代码如下： :
    2. 有些包是not-zip-safe的，可能不工作，有待验证。 含有c扩展的package
       不能工作。
 
+Matplotlib使用常见问题
+-----------------------
+
+SAE环境不支持matplotlib的interative模式，所以无法使用 `pyplot.show()` 直接来显示图像，只能使用
+`pyplot.savefig()` 将图像保存到一个输出流中（比如一个cStringIO.StringIO的实例中）。
+
+如果想要在matplotlib中显示中文，可以使用以下任一方法。
+
+    方法一： ::
+
+        import os.path
+        from matplotlib.font_manager import FontProperties
+        zh_font = FontProperties(fname=os.path.abspath('wqy-microhei.ttf'))
+        import matplotlib.pyplot as plt
+        plt.title(u'中文', fontproperties=zh_font)
+
+    方法二： ::
+
+        import os
+        # 设置自定义字体文件所在目录路径，多条路径之间使用分号（:）隔开
+        os.environ['TTFPATH'] = os.getcwd()
+        import matplotlib
+        # 设置默认字体名
+        matplotlib.rcParams['font.family'] = 'WenQuanYi Micro Hei'
+        import matplotlib.pyplot as plt
+        plt.title(u'中文')
+
+其中方法一适用于ttf和ttc字体，方法二适用于只适用于ttf字体
+
+如果有 `matplotlibrc` 配置文件，请将该文件与index.wsgi放在同一个目录下（默认的当前路径）。
+
+
+.. _wsgi_middleware:
+
+设置基于主机的访问控制
+----------------------------
+
+python runtime目前无法通过config.yaml来配置基于主机的访问控制，用户如果需要这个设置，可以通过wsgi middleware来完成。 ::
+
+    def filter_middleware(app):
+        def _(environ, start_response):
+            remote_addr = environ.get('REMOTE_ADDR')
+
+            # 判断remote_addr是否在允许访问范围内
+            # ...
+
+            if ok:
+                return app(environ, start_response)
+
+            start_response('401 Unauthorized', [])
+            return ["<b>401 Unauthorized</b>",]
+        return _
+
+    # 给application加上访问控制的中间件
+    application = filter_middleware(application)
